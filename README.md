@@ -11,6 +11,25 @@ The central idea: every governance rule is a machine check — five Roslyn analy
 banned-API rule, NetArchTest architecture facts, a drift gate, and a sanitize gate. A change
 that violates one of them fails the build or the test suite before review.
 
+![Future-state architecture](docs/diagram/page-00-future-state.png)
+
+The diagram above is the future-state system at a glance. Six more pages zoom into each
+zone — all live in one editable [draw.io file](docs/diagram/dotnet-api-platform-architecture.drawio)
+(plus a [PDF](docs/diagram/dotnet-api-platform-architecture.pdf)):
+
+| Page | View |
+|------|------|
+| [00 · Future State](docs/diagram/page-00-future-state.png) | the whole system, icon view |
+| [01 · Ecosystem](docs/diagram/page-01-ecosystem.png) | the platform-repo cascade across GitHub, Azure DevOps, and Azure |
+| [02 · Runtime](docs/diagram/page-02-runtime.png) | the modular monolith on Container Apps |
+| [03 · The Guards](docs/diagram/page-03-guards.png) | every control that fires on one API call, in order |
+| [04 · Contract-first & CI/CD](docs/diagram/page-04-contract-cicd.png) | TypeSpec → drift gate → pipeline |
+| [05 · Scaling Ladder](docs/diagram/page-05-scaling.png) | rungs 0–6 with explicit climb signals |
+| [A1 · Dense wiring](docs/diagram/page-A1-dense-wiring.png) | everything on one canvas, fully labeled |
+
+The diagrams are generated — edit [`docs/diagram/gen.py`](docs/diagram/gen.py) and re-run
+rather than editing the XML (see [docs/diagram/README.md](docs/diagram/README.md)).
+
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the full design and
 **[docs/PROMPT-TRANSCRIPT.md](docs/PROMPT-TRANSCRIPT.md)** for how this repo was built.
 
