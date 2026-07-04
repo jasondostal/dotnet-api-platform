@@ -1,0 +1,333 @@
+openapi: 3.1.0
+info:
+  title: Customers API
+  version: "1.0.0"
+  description: |
+    Core-banking **Customers** for Northwind Credit Union. The second golden-path
+    resource — cloned from the Accounts slice and following the identical house
+    conventions (RFC 9457 Problem Details, cursor pagination, version in path,
+    format in `Accept`, scope-gated detail).
+
+    Contact information (emails / phones / addresses) is sensitive PII and is
+    returned only when the token carries `contact.read`, mirroring the
+    basic-vs-detailed gating on Accounts. The backing source system ("Core
+    Banking") is named only inside the anti-corruption layer.
+  contact:
+    name: Northwind Platform Engineering
+    url: https://github.com/jasondostal/dotnet-api-platform
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: https://api.northwind.example/v1
+    description: Gateway (APIM) base; the API is mounted under /v1.
+
+security:
+  - oauth2: []
+
+tags:
+  - name: customers
+    description: Core-banking customer (member) profiles.
+
+paths:
+  /v1/customers:
+    get:
+      operationId: listCustomers
+      summary: List customers
+      description: |
+        Returns customers the caller is entitled to. Basic identifying fields are
+        returned with `customer.read`. The `contact` object (emails, phones,
+        addresses) is returned only when the token also carries `contact.read`.
+      tags: [customers]
+      security:
+        - oauth2: [customer.read]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of customers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerList"
+              examples:
+                page:
+                  summary: First page, basic fields
+                  value:
+                    data:
+                      - customerId: 3f1a7c20-9b54-4e11-a8d3-1c2b3a4d5e6f
+                        name:
+                          first: Avery
+                          last: Lindgren
+                        status: ACTIVE
+                      - customerId: 8c2b1d40-7e65-4a22-b9e4-2d3c4b5a6f70
+                        name:
+                          first: Jordan
+                          last: Okafor
+                        status: ACTIVE
+                    nextCursor: "eyJvZmZzZXQiOjUwfQ"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /v1/customers/{customerId}:
+    get:
+      operationId: getCustomer
+      summary: Get a customer
+      description: Returns a single customer; includes the `contact` object when the token carries `contact.read`.
+      tags: [customers]
+      security:
+        - oauth2: [customer.read]
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: The customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+              examples:
+                withContact:
+                  summary: Customer with contact (contact scope present)
+                  value:
+                    customerId: 3f1a7c20-9b54-4e11-a8d3-1c2b3a4d5e6f
+                    name:
+                      first: Avery
+                      last: Lindgren
+                    status: ACTIVE
+                    contact:
+                      emails:
+                        - email: avery.lindgren@example.com
+                          type: PRIMARY
+                      phones:
+                        - number: "+1-555-0100"
+                          type: MOBILE
+                      addresses:
+                        - type: HOME
+                          line1: 100 Birch Lane
+                          city: Central
+                          state: WI
+                          postalCode: "54000"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: OAuth2 client-credentials; scopes follow the platform `resource.action` convention.
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.northwind.example/oauth2/token
+          scopes:
+            customer.read: List and read basic customer fields.
+            contact.read: Read customer contact info (emails, phones, addresses).
+
+  parameters:
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      description: Opaque customer identifier (UUID).
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque pagination cursor from a prior response's `nextCursor`.
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum items per page (1-200, default 50).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+
+  responses:
+    BadRequest:
+      description: The request was malformed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            badRequest:
+              value:
+                type: https://api.northwind.example/problems/invalid-parameter
+                title: Invalid request parameter
+                status: 400
+                detail: "limit must be between 1 and 200."
+    Unauthorized:
+      description: Missing or invalid access token.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            unauthorized:
+              value:
+                type: https://api.northwind.example/problems/unauthorized
+                title: Unauthorized
+                status: 401
+                detail: A valid bearer token is required.
+    Forbidden:
+      description: The token lacks a required scope.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            forbidden:
+              value:
+                type: https://api.northwind.example/problems/insufficient-scope
+                title: Insufficient scope
+                status: 403
+                detail: "This operation requires the 'customer.read' scope."
+    NotFound:
+      description: The resource does not exist or is not visible to the caller.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            notFound:
+              value:
+                type: https://api.northwind.example/problems/customer-not-found
+                title: Customer not found
+                status: 404
+                detail: No customer exists with the supplied identifier.
+
+  schemas:
+    CustomerList:
+      type: object
+      x-source-system: platform
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+        nextCursor:
+          type: [string, "null"]
+          description: Cursor for the next page, or null on the last page.
+
+    Customer:
+      type: object
+      x-source-system: Core Banking
+      description: A canonical customer (member). The `contact` object is gated behind `contact.read`.
+      required: [customerId, name, status]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        name:
+          $ref: "#/components/schemas/PersonName"
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, CLOSED]
+        contact:
+          $ref: "#/components/schemas/Contact"
+
+    PersonName:
+      type: object
+      x-source-system: Core Banking
+      required: [first, last]
+      properties:
+        first:
+          type: string
+        last:
+          type: string
+
+    Contact:
+      type: object
+      x-source-system: Core Banking
+      properties:
+        emails:
+          type: array
+          items:
+            $ref: "#/components/schemas/Email"
+        phones:
+          type: array
+          items:
+            $ref: "#/components/schemas/Phone"
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Address"
+
+    Email:
+      type: object
+      x-source-system: Core Banking
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+        type:
+          type: string
+          enum: [PRIMARY, SECONDARY]
+
+    Phone:
+      type: object
+      x-source-system: Core Banking
+      required: [number]
+      properties:
+        number:
+          type: string
+        type:
+          type: string
+          enum: [MOBILE, HOME, WORK]
+
+    Address:
+      type: object
+      x-source-system: Core Banking
+      required: [line1, city, state, postalCode]
+      properties:
+        type:
+          type: string
+          enum: [HOME, MAILING, WORK]
+        line1:
+          type: string
+        line2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+
+    ProblemDetails:
+      type: object
+      x-source-system: platform
+      description: RFC 9457 Problem Details.
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri

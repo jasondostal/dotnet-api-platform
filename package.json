@@ -1,0 +1,18 @@
+{
+  "name": "api-platform-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Design-first governance + mock + docs tooling for the FI API Platform reference.",
+  "license": "MIT",
+  "scripts": {
+    "lint:api": "spectral lint \"openapi/**/*.yaml\" --ruleset .spectral.yaml",
+    "docs:build": "bash tools/build-portal.sh",
+    "docs:preview": "redocly preview-docs openapi/accounts.v1.yaml",
+    "mock": "prism mock openapi/accounts.v1.yaml --port 4010"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.25.0",
+    "@stoplight/prism-cli": "^5.8.0",
+    "@stoplight/spectral-cli": "^6.13.0"
+  }
+}

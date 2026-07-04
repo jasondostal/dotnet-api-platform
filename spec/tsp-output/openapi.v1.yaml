@@ -1,0 +1,885 @@
+openapi: 3.1.0
+info:
+  title: ApiPlatform
+  description: ApiPlatform — design-first open-banking API reference.
+  version: v1
+tags:
+  - name: accounts
+  - name: transactions
+  - name: customers
+paths:
+  /v1/accounts:
+    get:
+      operationId: listAccounts
+      summary: List accounts
+      description: |-
+        Returns the accounts the caller is entitled to.
+        Basic fields come with `account.read`; type-specific detail objects
+        require `account.detailed.read` in addition.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque pagination cursor from a prior response's `nextCursor`.
+          schema:
+            type: string
+          explode: false
+        - name: limit
+          in: query
+          required: false
+          description: Maximum items per page (1–200, default 50).
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountList'
+        '400':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - accounts
+  /v1/accounts/{accountId}:
+    get:
+      operationId: getAccount
+      summary: Get an account
+      description: |-
+        Returns a single account.
+        Includes the type-specific detail object when the token carries
+        `account.detailed.read`.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: Opaque account identifier (UUID).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - accounts
+  /v1/accounts/{accountId}/touch:
+    post:
+      operationId: touchAccount
+      summary: Emit an account-touched event
+      description: |-
+        Publishes a minimal domain event (`account.touched`) carrying only the
+        account identifier. Event Grid fans it out to a webhook and to
+        per-consumer queues. No request body; returns 202.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: Opaque account identifier (UUID).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: The request has been accepted for processing, but processing has not yet completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAccepted'
+        '401':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - accounts
+  /v1/accounts/{accountId}/transactions:
+    get:
+      operationId: listAccountTransactions
+      summary: List transactions for an account
+      description: Returns a page of posted and pending transactions for the account.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: Opaque account identifier (UUID).
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque pagination cursor from a prior response's `nextCursor`.
+          schema:
+            type: string
+          explode: false
+        - name: limit
+          in: query
+          required: false
+          description: Maximum items per page (1–200, default 50).
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionList'
+        '401':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - transactions
+  /v1/customers:
+    get:
+      operationId: listCustomers
+      summary: List customers
+      description: |-
+        Returns customers the caller is entitled to.
+        Basic fields come with `customer.read`; the `contact` object requires
+        `contact.read` in addition.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque pagination cursor from a prior response's `nextCursor`.
+          schema:
+            type: string
+          explode: false
+        - name: limit
+          in: query
+          required: false
+          description: Maximum items per page (1–200, default 50).
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerList'
+        '400':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - customers
+  /v1/customers/{customerId}:
+    get:
+      operationId: getCustomer
+      summary: Get a customer
+      description: |-
+        Returns a single customer.
+        Includes the `contact` object when the token carries `contact.read`.
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          description: Opaque customer identifier (UUID).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '401':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: |-
+            A response envelope that carries Problem Details with a specific HTTP status
+            and `application/problem+json` content type (RFC 9457).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+      tags:
+        - customers
+security:
+  - PlatformOAuth2:
+      - account.read
+      - account.detailed.read
+      - transaction.read
+      - customer.read
+      - contact.read
+      - event.publish
+components:
+  schemas:
+    Account:
+      type: object
+      required:
+        - accountId
+        - accountType
+        - status
+        - currency
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Opaque identifier. Never a real account number.
+        accountType:
+          $ref: '#/components/schemas/AccountType'
+        accountNumberDisplay:
+          type: string
+          description: Masked display value, e.g. "****1234".
+        nickname:
+          type: string
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+        productName:
+          type: string
+        depositAccount:
+          allOf:
+            - $ref: '#/components/schemas/DepositDetail'
+          description: Present when `accountType` is DEPOSIT and token carries `account.detailed.read`.
+        creditAccount:
+          allOf:
+            - $ref: '#/components/schemas/CreditDetail'
+          description: Present when `accountType` is CREDIT and token carries `account.detailed.read`.
+        loanAccount:
+          allOf:
+            - $ref: '#/components/schemas/LoanDetail'
+          description: Present when `accountType` is LOAN and token carries `account.detailed.read`.
+      description: |-
+        A canonical account. `accountType` selects which (if any) type-specific
+        detail object is present. Detail objects require `account.detailed.read`.
+    AccountList:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        nextCursor:
+          anyOf:
+            - type: string
+            - type: 'null'
+      description: Cursor-based page of accounts.
+    AccountStatus:
+      type: string
+      enum:
+        - OPEN
+        - CLOSED
+        - FROZEN
+      description: Lifecycle status of an account.
+    AccountTouchedEvent:
+      type: object
+      required:
+        - id
+        - eventType
+        - subject
+        - time
+        - data
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        subject:
+          type: string
+        time:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/AccountTouchedPayload'
+      description: An account-touched domain event (northwind.account.touched).
+    AccountTouchedPayload:
+      type: object
+      required:
+        - accountId
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: The account that was touched.
+      description: Payload for account-touched events.
+    AccountType:
+      type: string
+      enum:
+        - DEPOSIT
+        - CREDIT
+        - LOAN
+      description: Category of account as modelled by the core platform.
+    Address:
+      type: object
+      required:
+        - line1
+        - city
+        - state
+        - postalCode
+      properties:
+        type:
+          $ref: '#/components/schemas/AddressType'
+        line1:
+          type: string
+        line2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+      description: A customer postal address.
+    AddressType:
+      type: string
+      enum:
+        - HOME
+        - MAILING
+        - WORK
+      description: Classification of a postal address.
+    ChangeType:
+      type: string
+      enum:
+        - created
+        - updated
+        - deleted
+      description: Type of change represented by a feed entry.
+    Contact:
+      type: object
+      properties:
+        emails:
+          type: array
+          items:
+            $ref: '#/components/schemas/Email'
+        phones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Phone'
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+      description: |-
+        Aggregated contact information for a customer.
+        Sensitive PII; returned only when the token carries `contact.read`.
+    CreditDetail:
+      type: object
+      properties:
+        creditLimit:
+          type: number
+          format: double
+        currentBalance:
+          type: number
+          format: double
+        availableCredit:
+          type: number
+          format: double
+        purchaseApr:
+          type: number
+          format: double
+        minimumPaymentDue:
+          type: number
+          format: double
+        paymentDueDate:
+          type: string
+          format: date
+      description: |-
+        Balance and rate fields for revolving credit accounts.
+        Present only when the token carries `account.detailed.read`.
+    Customer:
+      type: object
+      required:
+        - customerId
+        - name
+        - status
+      properties:
+        customerId:
+          type: string
+          format: uuid
+          description: Opaque customer identifier (UUID).
+        name:
+          $ref: '#/components/schemas/PersonName'
+        status:
+          $ref: '#/components/schemas/CustomerStatus'
+        contact:
+          allOf:
+            - $ref: '#/components/schemas/Contact'
+          description: Contact info (PII); present only when token carries `contact.read`.
+      description: |-
+        A canonical customer (member) profile.
+        The `contact` object is gated behind `contact.read`.
+    CustomerList:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Customer'
+        nextCursor:
+          anyOf:
+            - type: string
+            - type: 'null'
+      description: Cursor-based page of customers.
+    CustomerStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - CLOSED
+      description: Lifecycle status of a customer profile.
+    DepositDetail:
+      type: object
+      properties:
+        currentBalance:
+          type: number
+          format: double
+        availableBalance:
+          type: number
+          format: double
+      description: |-
+        Balance fields for deposit-type accounts (share, savings, checking).
+        Present only when the token carries `account.detailed.read`.
+    Email:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        type:
+          $ref: '#/components/schemas/EmailType'
+      description: A customer email address.
+    EmailType:
+      type: string
+      enum:
+        - PRIMARY
+        - SECONDARY
+      description: Classification of an email address.
+    EventAccepted:
+      type: object
+      required:
+        - eventType
+        - id
+        - status
+      properties:
+        eventType:
+          type: string
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - PUBLISHED
+      description: Acknowledgement returned after an account event is accepted for publication.
+    Insight:
+      type: object
+      required:
+        - id
+        - metricName
+        - value
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Opaque identifier (UUID).
+        metricName:
+          type: string
+          description: Metric name (e.g. "daily_active_accounts").
+        value:
+          type: number
+          format: double
+          description: Numeric metric value.
+        unit:
+          type: string
+          description: Unit of measure (e.g. "count", "USD", "percent").
+        period:
+          type: string
+          description: Time period the metric covers (e.g. "2026-06", "2026-Q2").
+        timestamp:
+          type: string
+          format: date-time
+          description: When the metric was computed or observed.
+      description: |-
+        A single metric or insight data point.
+        Stub model for analytics store integration (future domain).
+    InsightList:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Insight'
+        nextCursor:
+          anyOf:
+            - type: string
+            - type: 'null'
+      description: A collection of insight rows returned by a query.
+    LoanDetail:
+      type: object
+      properties:
+        principalBalance:
+          type: number
+          format: double
+        interestRate:
+          type: number
+          format: double
+        paymentAmount:
+          type: number
+          format: double
+        nextPaymentDate:
+          type: string
+          format: date
+      description: |-
+        Balance and payment fields for instalment loan accounts.
+        Present only when the token carries `account.detailed.read`.
+    PersonName:
+      type: object
+      required:
+        - first
+        - last
+      properties:
+        first:
+          type: string
+        last:
+          type: string
+      description: Legal name of a customer.
+    Phone:
+      type: object
+      required:
+        - number
+      properties:
+        number:
+          type: string
+        type:
+          $ref: '#/components/schemas/PhoneType'
+      description: A customer phone number.
+    PhoneType:
+      type: string
+      enum:
+        - MOBILE
+        - HOME
+        - WORK
+      description: Classification of a phone number.
+    ProblemDetails:
+      type: object
+      required:
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI reference identifying the problem type.
+        title:
+          type: string
+          description: Short, human-readable summary of the problem.
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Human-readable explanation of this specific occurrence.
+        instance:
+          type: string
+          format: uri
+          description: URI reference identifying this specific occurrence of the problem.
+      description: RFC 9457 Problem Details for HTTP APIs.
+    RecordCreatedEvent:
+      type: object
+      required:
+        - id
+        - eventType
+        - subject
+        - time
+        - data
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        subject:
+          type: string
+        time:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/RecordCreatedPayload'
+      description: A record-created domain event (northwind.record.created).
+    RecordCreatedPayload:
+      type: object
+      required:
+        - resourceType
+        - resourceId
+      properties:
+        resourceType:
+          type: string
+          description: Type of the newly created resource (e.g. "account", "customer").
+        resourceId:
+          type: string
+          format: uuid
+          description: Identifier of the newly created resource.
+      description: Payload for record-created events.
+    Transaction:
+      type: object
+      required:
+        - transactionId
+        - accountId
+        - transactionType
+        - amount
+        - status
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        transactionType:
+          $ref: '#/components/schemas/TransactionType'
+        amount:
+          type: number
+          format: double
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/TransactionStatus'
+        postedDate:
+          type: string
+          format: date
+        transactionDate:
+          type: string
+          format: date
+        merchantName:
+          type: string
+        merchantCategoryCode:
+          type: string
+      description: A posted or pending transaction on an account.
+    TransactionList:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        nextCursor:
+          anyOf:
+            - type: string
+            - type: 'null'
+      description: Cursor-based page of transactions.
+    TransactionStatus:
+      type: string
+      enum:
+        - PENDING
+        - POSTED
+      description: Settlement status of a transaction.
+    TransactionType:
+      type: string
+      enum:
+        - DEBIT
+        - CREDIT
+      description: Direction of a transaction relative to the account.
+    Versions:
+      type: string
+      enum:
+        - v1
+      description: Supported API versions.
+    WorkItem:
+      type: object
+      required:
+        - id
+        - title
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Opaque identifier (UUID).
+        title:
+          type: string
+          description: Short human-readable title.
+        status:
+          $ref: '#/components/schemas/WorkItemStatus'
+        assignee:
+          type: string
+          format: email
+          description: |-
+            Email address of the assignee.
+            Optional; absent when unassigned.
+      description: |-
+        A tracked work item.
+        Stub model for external project-management integration (future domain).
+    WorkItemStatus:
+      type: string
+      enum:
+        - OPEN
+        - IN_PROGRESS
+        - DONE
+      description: Lifecycle status of a work item.
+  securitySchemes:
+    PlatformOAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.northwind.example/oauth2/token
+          scopes:
+            account.read: ''
+            account.detailed.read: ''
+            transaction.read: ''
+            customer.read: ''
+            contact.read: ''
+            event.publish: ''
+      description: |-
+        OAuth2 client-credentials for machine-to-machine and workforce consumers.
+        Scopes follow the platform `resource.action` convention.
+        All six platform scopes are declared here; operations reference specific subsets.
+servers:
+  - url: https://api.northwind.example
+    description: Gateway (APIM) base; the API is mounted under /v1.
+    variables: {}

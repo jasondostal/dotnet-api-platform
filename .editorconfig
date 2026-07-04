@@ -1,0 +1,46 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{yaml,yml,json,bicep,bicepparam}]
+indent_size = 2
+
+[*.cs]
+# C# conventions — keep generated + hand-written code consistent.
+dotnet_sort_system_directives_first = true
+csharp_new_line_before_open_brace = all
+dotnet_style_namespace_match_folder = true
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+# ── Platform governance guardrails: these FAIL THE BUILD ─────────────────────
+# The whole thesis: house rules are machine-checked exit codes, not review comments,
+# so a junior dev or an agent literally cannot merge a violation. Promoted to error
+# regardless of TreatWarningsAsErrors (which stays false for ordinary warnings).
+#
+#   APL0001 — a governed domain source registered outside the connector registry
+#             (bypasses the audited/observed data path). Custom analyzer.
+#   APL0002 — an IConnectorModule that isn't public (silently never discovered). Custom analyzer.
+#   APL0003 — ambient clock read via DateTime/DateTimeOffset instead of TimeProvider. Custom analyzer.
+#   RS0030  — a banned raw data primitive (HttpClient/SqlConnection/DbContext) used
+#             outside the Integration ACL layer. BannedApiAnalyzers.
+#   APL0005 — problem response missing an RFC 9457 type URI (omitted type forces consumers
+#             to string-match titles, which is unstable and breaks machine classification).
+dotnet_diagnostic.APL0001.severity = error
+dotnet_diagnostic.APL0002.severity = error
+dotnet_diagnostic.APL0003.severity = error
+dotnet_diagnostic.APL0004.severity = error
+dotnet_diagnostic.APL0005.severity = error
+dotnet_diagnostic.RS0030.severity = error
+
+[Makefile]
+indent_style = tab
+
+# The analyzer project doesn't ship release notes for every dev build — quiet RS2008.
+[src/ApiPlatform.Analyzers/**.cs]
+dotnet_diagnostic.RS2008.severity = none

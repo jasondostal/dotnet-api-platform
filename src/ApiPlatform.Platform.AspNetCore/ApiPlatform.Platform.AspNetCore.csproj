@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <PackageId>ApiPlatform.Platform.AspNetCore</PackageId>
+    <Description>ASP.NET Core web governance for ApiPlatform: scope-based auth (Header and Entra/JWT), idempotency middleware, problem details, and unified AddPlatform/UsePlatform wiring.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ApiPlatform.Platform\ApiPlatform.Platform.csproj" />
+  </ItemGroup>
+
+</Project>

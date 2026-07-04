@@ -1,0 +1,21 @@
+# Redocly config — bundles the OpenAPI catalog into the static internal dev portal.
+# `npm run docs:build` emits docs/portal/index.html, which the Makefile uploads to the
+# Blob Storage static website ($web). Source-system metadata (x-source-system) renders
+# alongside each schema so the portal doubles as a lightweight service catalog.
+#
+# TypeSpec is now the source of truth. The emitted contract under spec/tsp-output/
+# is the primary reference; the legacy hand-authored files under openapi/_legacy/
+# are kept for comparison only.
+apis:
+  platform@v1:
+    root: spec/tsp-output/openapi.v1.yaml
+  accounts@v1:
+    root: openapi/_legacy/accounts.v1.yaml
+  customers@v1:
+    root: openapi/_legacy/customers.v1.yaml
+
+theme:
+  openapi:
+    hideDownloadButton: false
+    schemaExpansionLevel: 2
+    expandResponses: "200,201"

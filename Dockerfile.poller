@@ -1,0 +1,29 @@
+# Native AOT build for the Poller — produces a tiny, fast-cold-start worker image with no
+# .NET runtime inside (the binary is self-contained). Targets Container Apps Jobs / scale-to-zero.
+# syntax=docker/dockerfile:1
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Native AOT needs a C toolchain + zlib to link the native image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends clang zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+
+# Restore layer — central versions + the Poller's lean project closure.
+COPY Directory.Packages.props nuget.config ./
+COPY src/Directory.Build.props src/
+COPY src/ApiPlatform.Contracts/ApiPlatform.Contracts.csproj src/ApiPlatform.Contracts/
+COPY src/ApiPlatform.Platform/ApiPlatform.Platform.csproj src/ApiPlatform.Platform/
+COPY src/ApiPlatform.Platform.Telemetry/ApiPlatform.Platform.Telemetry.csproj src/ApiPlatform.Platform.Telemetry/
+COPY src/ApiPlatform.Poller/ApiPlatform.Poller.csproj src/ApiPlatform.Poller/
+RUN dotnet restore src/ApiPlatform.Poller/ApiPlatform.Poller.csproj -r linux-x64
+
+COPY src/ src/
+RUN dotnet publish src/ApiPlatform.Poller/ApiPlatform.Poller.csproj -c Release -r linux-x64 -o /app
+
+# Chiseled runtime-deps = minimal native deps (libc/zlib), no shell, non-root by default.
+# A ~6 MB native binary on a ~15 MB chiseled base => a tiny, fast-cold-start image.
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled AS runtime
+WORKDIR /app
+COPY --from=build /app/ApiPlatform.Poller .
+USER $APP_UID
+ENTRYPOINT ["./ApiPlatform.Poller"]

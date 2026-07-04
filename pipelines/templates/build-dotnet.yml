@@ -1,0 +1,40 @@
+# Reusable build-dotnet steps template (the "platform owns the gates, apps consume them"
+# pattern). In an org instance this lives in a central, audited platform repo and apps
+# reference it via `resources.repositories`; the app pipeline then becomes a thin caller:
+#
+#   resources:
+#     repositories:
+#       - repository: platform
+#         type: git
+#         name: platform/pipeline-templates
+#   steps:
+#     - template: pipelines/templates/build-dotnet.yml@platform
+#       parameters: { solution: src/ApiPlatform.slnx }
+#
+# Kept here as a local example so the reference demonstrates the shape.
+
+parameters:
+  - name: solution
+    type: string
+    default: src/ApiPlatform.slnx
+  - name: buildConfiguration
+    type: string
+    default: Release
+  - name: dotnetVersion
+    type: string
+    default: "10.0.x"
+
+steps:
+  - task: UseDotNet@2
+    inputs: { packageType: sdk, version: "${{ parameters.dotnetVersion }}" }
+  - script: dotnet restore ${{ parameters.solution }} --locked-mode
+    displayName: "restore (locked)"
+  - script: dotnet build ${{ parameters.solution }} -c ${{ parameters.buildConfiguration }} --no-restore
+    displayName: "build"
+  - script: dotnet test ${{ parameters.solution }} -c ${{ parameters.buildConfiguration }} --no-build --logger trx --results-directory $(Agent.TempDirectory)/tr
+    displayName: "test"
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: "$(Agent.TempDirectory)/tr/**/*.trx"

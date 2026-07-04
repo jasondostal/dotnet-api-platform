@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Suppress obsolete WithOpenApi() warning — accepted tradeoff for net10 PoC -->
+    <NoWarn>$(NoWarn);ASPDEPR002</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ApiPlatform.Contracts\ApiPlatform.Contracts.csproj" />
+    <ProjectReference Include="..\ApiPlatform.Platform.AspNetCore\ApiPlatform.Platform.AspNetCore.csproj" />
+    <ProjectReference Include="..\ApiPlatform.Integration\ApiPlatform.Integration.csproj" />
+    <ProjectReference Include="..\ApiPlatform.ServiceDefaults\ApiPlatform.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" />
+    <PackageReference Include="Audit.NET" />
+    <PackageReference Include="Audit.WebApi.Core" />
+    <PackageReference Include="Azure.Messaging.EventGrid" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
+    <PackageReference Include="Azure.Storage.Queues" />
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- 1.16.0: clears NU1902 advisory GHSA-g94r-2vxg-569j present in 1.12.0 -->
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+  </ItemGroup>
+
+</Project>

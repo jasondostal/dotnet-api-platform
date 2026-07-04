@@ -1,0 +1,4 @@
+T:System.Net.Http.HttpClient;External HTTP access belongs behind a typed client in the Integration (ACL) layer, not in a host or endpoint. Member data must flow through the audited connector seam.
+T:System.Data.SqlClient.SqlConnection;Database access belongs behind a connector in Integration, not in a host or endpoint.
+T:Microsoft.Data.SqlClient.SqlConnection;Database access belongs behind a connector in Integration, not in a host or endpoint.
+T:Microsoft.EntityFrameworkCore.DbContext;Open a DbContext only behind a connector in Integration; hosts and endpoints reach data through the governed I{Domain}Source seam.

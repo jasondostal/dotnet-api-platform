@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+
+    <!-- Native AOT: a lean, fast-cold-start worker for Container Apps Jobs / scale-to-zero.
+         The AOT analyzers run at build time so the reflection boundary is visible early;
+         the native image is produced by `dotnet publish -r <rid>` (see Dockerfile.poller). -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StripSymbols>true</StripSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lean telemetry tier (no ASP.NET Core framework ref) — the web/rich hosts use
+         ApiPlatform.ServiceDefaults; an AOT worker uses the minimal OTel path. -->
+    <ProjectReference Include="..\ApiPlatform.Contracts\ApiPlatform.Contracts.csproj" />
+    <ProjectReference Include="..\ApiPlatform.Platform\ApiPlatform.Platform.csproj" />
+    <ProjectReference Include="..\ApiPlatform.Platform.Telemetry\ApiPlatform.Platform.Telemetry.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+<Solution>
+  <Project Path="ApiPlatform.Analyzers/ApiPlatform.Analyzers.csproj" />
+  <Project Path="ApiPlatform.Contracts/ApiPlatform.Contracts.csproj" />
+  <Project Path="ApiPlatform.Platform/ApiPlatform.Platform.csproj" />
+  <Project Path="ApiPlatform.Platform.AspNetCore/ApiPlatform.Platform.AspNetCore.csproj" />
+  <Project Path="ApiPlatform.Platform.Telemetry/ApiPlatform.Platform.Telemetry.csproj" />
+  <Project Path="ApiPlatform.ServiceDefaults/ApiPlatform.ServiceDefaults.csproj" />
+  <Project Path="ApiPlatform.Integration/ApiPlatform.Integration.csproj" />
+  <Project Path="ApiPlatform.Api/ApiPlatform.Api.csproj" />
+  <Project Path="ApiPlatform.Poller/ApiPlatform.Poller.csproj" />
+  <Project Path="ApiPlatform.EventSource/ApiPlatform.EventSource.csproj" />
+  <Project Path="ApiPlatform.Mcp/ApiPlatform.Mcp.csproj" />
+  <Project Path="ApiPlatform.AppHost/ApiPlatform.AppHost.csproj" />
+  <Project Path="../tests/ApiPlatform.Tests/ApiPlatform.Tests.csproj" />
+  <Project Path="../tests/ApiPlatform.Poller.Tests/ApiPlatform.Poller.Tests.csproj" />
+  <Project Path="../tests/ApiPlatform.EventSource.Tests/ApiPlatform.EventSource.Tests.csproj" />
+  <Project Path="../tests/ApiPlatform.Mcp.Tests/ApiPlatform.Mcp.Tests.csproj" />
+  <Project Path="../tests/ApiPlatform.Analyzers.Tests/ApiPlatform.Analyzers.Tests.csproj" />
+</Solution>

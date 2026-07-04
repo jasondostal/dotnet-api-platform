@@ -1,0 +1,480 @@
+openapi: 3.1.0
+info:
+  title: Accounts API
+  version: "1.0.0"
+  description: |
+    Core-banking **Accounts** and **Transactions** for Northwind Credit Union.
+
+    This is the golden-path reference slice. It is FDX-modeled (opaque account
+    identifiers, a polymorphic `accountType` with type-specific detail objects,
+    scope-gated basic-vs-detailed fields) but expressed in the platform's own
+    house conventions:
+
+      * errors are RFC 9457 Problem Details (`application/problem+json`)
+      * pagination is cursor-based (`cursor` / `limit` / `nextCursor`)
+      * the version is in the path; the *format* is negotiated via `Accept`
+
+    FDX-specific projections (FDX error codes, HATEOAS pagination, the
+    `fdx:*` scope spelling) are produced by a downstream projection layer, not
+    baked into the canonical API. The canonical model is the stability boundary;
+    the backing source system ("Core Banking") is named only inside the
+    anti-corruption layer and never leaks to consumers.
+  contact:
+    name: Northwind Platform Engineering
+    url: https://github.com/jasondostal/dotnet-api-platform
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: https://api.northwind.example/v1
+    description: Gateway (APIM) base; the API is mounted under /v1.
+
+security:
+  - oauth2: []
+
+tags:
+  - name: accounts
+    description: Core-banking accounts.
+  - name: transactions
+    description: Account transactions.
+
+paths:
+  /v1/accounts:
+    get:
+      operationId: listAccounts
+      summary: List accounts
+      description: |
+        Returns the accounts the caller is entitled to. Basic identifying fields
+        are returned with `account.read`. The type-specific detail objects
+        (`depositAccount` / `creditAccount` / `loanAccount`) are returned only
+        when the token also carries `account.detailed.read`.
+      tags: [accounts]
+      security:
+        - oauth2: [account.read]
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of accounts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountList"
+              examples:
+                page:
+                  summary: First page, basic fields
+                  value:
+                    data:
+                      - accountId: f47ac10b-58cc-4372-a567-0e02b2c3d479
+                        accountType: DEPOSIT
+                        accountNumberDisplay: "****1234"
+                        nickname: Everyday Checking
+                        status: OPEN
+                        currency: USD
+                        productName: Free Checking
+                      - accountId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                        accountType: CREDIT
+                        accountNumberDisplay: "****4521"
+                        nickname: Rewards Card
+                        status: OPEN
+                        currency: USD
+                        productName: Platinum Rewards
+                    nextCursor: eyJvZmZzZXQiOjUwfQ
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /v1/accounts/{accountId}:
+    get:
+      operationId: getAccount
+      summary: Get an account
+      description: |
+        Returns a single account. Includes the type-specific detail object when
+        the token carries `account.detailed.read`.
+      tags: [accounts]
+      security:
+        - oauth2: [account.read]
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+              examples:
+                credit:
+                  summary: Credit account with detail (detailed scope present)
+                  value:
+                    accountId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    accountType: CREDIT
+                    accountNumberDisplay: "****4521"
+                    nickname: Rewards Card
+                    status: OPEN
+                    currency: USD
+                    productName: Platinum Rewards
+                    creditAccount:
+                      creditLimit: 10000.00
+                      currentBalance: 2547.89
+                      availableCredit: 7452.11
+                      purchaseApr: 19.99
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/accounts/{accountId}/transactions:
+    get:
+      operationId: listAccountTransactions
+      summary: List transactions for an account
+      description: Returns a page of posted and pending transactions for the account.
+      tags: [transactions]
+      security:
+        - oauth2: [transaction.read]
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of transactions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionList"
+              examples:
+                page:
+                  summary: Two transactions
+                  value:
+                    data:
+                      - transactionId: 550e8400-e29b-41d4-a716-446655440000
+                        accountId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                        transactionType: DEBIT
+                        amount: 42.17
+                        description: COFFEE ROASTERS #221
+                        status: POSTED
+                        postedDate: "2026-06-22"
+                        transactionDate: "2026-06-21"
+                        merchantName: Coffee Roasters
+                        merchantCategoryCode: "5812"
+                      - transactionId: 9b2e6679-7425-40de-944b-e07fc1f90123
+                        accountId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                        transactionType: CREDIT
+                        amount: 500.00
+                        description: PAYMENT - THANK YOU
+                        status: POSTED
+                        postedDate: "2026-06-20"
+                    nextCursor: "eyJvZmZzZXQiOjEwMH0"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/accounts/{accountId}/touch:
+    post:
+      operationId: touchAccount
+      summary: Emit an account-touched event
+      description: |
+        Publishes a minimal domain event (`northwind.account.touched`) carrying only the
+        account identifier — the synchronous API's "event face". Event Grid fans it out to
+        a webhook and to per-consumer queues. No request body; returns 202.
+      tags: [accounts]
+      security:
+        - oauth2: [event.publish]
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "202":
+          description: Event accepted for publication.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAccepted"
+              examples:
+                accepted:
+                  value:
+                    eventType: northwind.account.touched
+                    id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    status: PUBLISHED
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth2 client-credentials for machine-to-machine and workforce consumers.
+        Scopes follow the platform `resource.action` convention; an FDX projection
+        maps these to the `fdx:*` spelling.
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.northwind.example/oauth2/token
+          scopes:
+            account.read: List and read basic account fields.
+            account.detailed.read: Read type-specific balance/limit/rate detail.
+            transaction.read: Read account transactions.
+            event.publish: Publish account domain events.
+
+  parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      description: Opaque account identifier (UUID). Never a real account number.
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque pagination cursor from a prior response's `nextCursor`.
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum items per page (1-200, default 50).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+
+  responses:
+    BadRequest:
+      description: The request was malformed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            badRequest:
+              value:
+                type: https://api.northwind.example/problems/invalid-parameter
+                title: Invalid request parameter
+                status: 400
+                detail: "limit must be between 1 and 200."
+    Unauthorized:
+      description: Missing or invalid access token.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            unauthorized:
+              value:
+                type: https://api.northwind.example/problems/unauthorized
+                title: Unauthorized
+                status: 401
+                detail: A valid bearer token is required.
+    Forbidden:
+      description: The token lacks a required scope.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            forbidden:
+              value:
+                type: https://api.northwind.example/problems/insufficient-scope
+                title: Insufficient scope
+                status: 403
+                detail: "This operation requires the 'transaction.read' scope."
+    NotFound:
+      description: The resource does not exist or is not visible to the caller.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+          examples:
+            notFound:
+              value:
+                type: https://api.northwind.example/problems/account-not-found
+                title: Account not found
+                status: 404
+                detail: No account exists with the supplied identifier.
+
+  schemas:
+    AccountList:
+      type: object
+      x-source-system: platform
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Account"
+        nextCursor:
+          type: [string, "null"]
+          description: Cursor for the next page, or null on the last page.
+
+    Account:
+      type: object
+      x-source-system: Core Banking
+      description: |
+        A canonical account. `accountType` selects which (if any) of the
+        type-specific detail objects is present. Detail objects are returned only
+        when the token carries `account.detailed.read`.
+      required: [accountId, accountType, status, currency]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+          description: Opaque identifier. Never a real account number.
+        accountType:
+          type: string
+          enum: [DEPOSIT, CREDIT, LOAN]
+        accountNumberDisplay:
+          type: string
+          description: Masked display value, e.g. "****1234".
+        nickname:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, CLOSED, FROZEN]
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          example: USD
+        productName:
+          type: string
+        depositAccount:
+          $ref: "#/components/schemas/DepositDetail"
+        creditAccount:
+          $ref: "#/components/schemas/CreditDetail"
+        loanAccount:
+          $ref: "#/components/schemas/LoanDetail"
+
+    DepositDetail:
+      type: object
+      x-source-system: Core Banking
+      properties:
+        currentBalance:
+          type: number
+        availableBalance:
+          type: number
+
+    CreditDetail:
+      type: object
+      x-source-system: Core Banking
+      properties:
+        creditLimit:
+          type: number
+        currentBalance:
+          type: number
+        availableCredit:
+          type: number
+        purchaseApr:
+          type: number
+        minimumPaymentDue:
+          type: number
+        paymentDueDate:
+          type: string
+          format: date
+
+    LoanDetail:
+      type: object
+      x-source-system: Core Banking
+      properties:
+        principalBalance:
+          type: number
+        interestRate:
+          type: number
+        paymentAmount:
+          type: number
+        nextPaymentDate:
+          type: string
+          format: date
+
+    TransactionList:
+      type: object
+      x-source-system: platform
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        nextCursor:
+          type: [string, "null"]
+
+    Transaction:
+      type: object
+      x-source-system: Core Banking
+      required: [transactionId, accountId, transactionType, amount, status]
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        transactionType:
+          type: string
+          enum: [DEBIT, CREDIT]
+        amount:
+          type: number
+        description:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, POSTED]
+        postedDate:
+          type: string
+          format: date
+        transactionDate:
+          type: string
+          format: date
+        merchantName:
+          type: string
+        merchantCategoryCode:
+          type: string
+
+    EventAccepted:
+      type: object
+      x-source-system: platform
+      required: [eventType, id, status]
+      properties:
+        eventType:
+          type: string
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PUBLISHED]
+
+    ProblemDetails:
+      type: object
+      x-source-system: platform
+      description: RFC 9457 Problem Details.
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri

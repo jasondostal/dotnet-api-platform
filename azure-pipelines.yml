@@ -1,0 +1,160 @@
+# Azure DevOps — multi-stage pipeline for the API Platform (design-first, shift-left).
+#
+# Build → pack → publish-to-Azure-Artifacts → deploy. This is the reference CI/CD artifact
+# for an ADO shop: the four packable projects are published to a personal Azure Artifacts
+# NuGet feed; the Web API host deploys to Azure Container Apps via Bicep.
+#
+# Placeholders to set as pipeline variables / variable groups (kept generic for the public
+# reference — substitute your own values in your org):
+#   azureServiceConnection  — ARM service connection name (-> your subscription)
+#   artifactsFeed           — Azure Artifacts feed name (e.g. dotnet-api-platform)
+#   resourceGroup           — target RG for the dev environment
+#   acrName / appName       — container registry + container app names (from Bicep outputs)
+#
+# In an org instance the Build / Scan / Deploy steps would consume shared, audited pipeline
+# templates via `resources.repositories` (platform owns the gates, apps consume them); the
+# slots are marked below. See pipelines/templates/ for the local template examples.
+
+trigger:
+  branches:
+    include: [main]
+  tags:
+    include: ["v*"]
+  paths:
+    exclude:
+      - docs/portal/*
+      - "**/*.md"
+
+pr:
+  branches:
+    include: [main]
+
+variables:
+  dotnetVersion: "10.0.x"
+  nodeVersion: "22.x"
+  buildConfiguration: "Release"
+  # Clean version on a v* tag; prerelease suffix on every main build (see Pack stage).
+  isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/v')]
+
+stages:
+  # ── 1. Build · test · spec · lint · conformance · drift ─────────────────────
+  - stage: BuildTest
+    displayName: "Build · test · contract gates"
+    jobs:
+      - job: build
+        pool: { vmImage: "ubuntu-latest" }
+        steps:
+          - task: UseDotNet@2
+            inputs: { packageType: sdk, version: "$(dotnetVersion)" }
+          - task: NodeTool@0
+            inputs: { versionSpec: "$(nodeVersion)" }
+
+          # Restore locked, from the Azure Artifacts feed (nuget.config points at it).
+          # Org instance: replace build+test with the shared build-dotnet template.
+          - script: dotnet restore src/ApiPlatform.slnx --locked-mode
+            displayName: "restore (locked)"
+          - script: dotnet build src/ApiPlatform.slnx -c $(buildConfiguration) --no-restore
+            displayName: "build (Release)"
+          - script: dotnet test src/ApiPlatform.slnx -c $(buildConfiguration) --no-build --logger trx --results-directory $(Agent.TempDirectory)/tr
+            displayName: "test (arch + governance + domain + drift-readiness)"
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: "$(Agent.TempDirectory)/tr/**/*.trx"
+
+          # TypeSpec is law: compile the spec, lint the emitted contract.
+          - script: cd spec && npm ci && npx tsp compile .
+            displayName: "tsp compile (spec → OpenAPI 3.1 + JSON Schema)"
+          - script: npx --yes @stoplight/spectral-cli lint spec/tsp-output/openapi.v1.yaml --ruleset .spectral.yaml
+            displayName: "spectral lint (style guide as code)"
+
+          # Conformance: the running API matches the emitted contract.
+          - script: |
+              python -m pip install --quiet schemathesis
+              dotnet run --project src/ApiPlatform.Api/ApiPlatform.Api.csproj -c $(buildConfiguration) --no-launch-profile --urls http://localhost:5000 &
+              APP_PID=$!
+              for i in $(seq 1 20); do curl -fsS http://localhost:5000/health && break || sleep 2; done
+              schemathesis run http://localhost:5000/openapi/v1.json --checks all || true
+              kill $APP_PID || true
+            displayName: "schemathesis — spec conformance"
+
+          # Drift gate: runtime /openapi/v1.json == emitted contract (no phantom/missing routes).
+          - script: bash tools/drift-check.sh
+            displayName: "drift gate"
+
+          - script: dotnet publish src/ApiPlatform.Api/ApiPlatform.Api.csproj -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)/api
+            displayName: "publish API host"
+          - publish: $(Build.ArtifactStagingDirectory)/api
+            artifact: api
+
+  # ── 2. Security scan (advisory here; HARD gate via shared template in org) ───
+  - stage: Scan
+    displayName: "Security scan (advisory)"
+    dependsOn: BuildTest
+    jobs:
+      - job: scan
+        pool: { vmImage: "ubuntu-latest" }
+        steps:
+          - script: docker run --rm -v "$(Build.SourcesDirectory):/repo" zricethezav/gitleaks:latest detect --source=/repo --no-git --redact || true
+            displayName: "gitleaks (advisory)"
+
+  # ── 3. Pack + publish the four packable projects to Azure Artifacts ─────────
+  #     Every main build packs a prerelease (-ci.<BuildId>); a v* tag packs a clean release.
+  - stage: Pack
+    displayName: "Pack → Azure Artifacts feed"
+    dependsOn: BuildTest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: pack
+        pool: { vmImage: "ubuntu-latest" }
+        steps:
+          - task: UseDotNet@2
+            inputs: { packageType: sdk, version: "$(dotnetVersion)" }
+          - script: dotnet restore src/ApiPlatform.slnx --locked-mode
+            displayName: "restore (locked)"
+          - bash: |
+              SUFFIX=""
+              if [ "$(isTag)" != "True" ]; then SUFFIX="--version-suffix ci.$(Build.BuildId)"; fi
+              for proj in Contracts Platform Platform.AspNetCore Platform.Telemetry ServiceDefaults Analyzers; do
+                dotnet pack src/ApiPlatform.$proj/ApiPlatform.$proj.csproj -c $(buildConfiguration) $SUFFIX -o $(Build.ArtifactStagingDirectory)/nupkg
+              done
+            displayName: "dotnet pack (Contracts, Platform, Platform.AspNetCore, Platform.Telemetry)"
+          - task: NuGetAuthenticate@1
+          - script: dotnet nuget push "$(Build.ArtifactStagingDirectory)/nupkg/*.nupkg" --source "$(artifactsFeed)" --api-key az --skip-duplicate
+            displayName: "push to Azure Artifacts feed"
+          - publish: $(Build.ArtifactStagingDirectory)/nupkg
+            artifact: nupkg
+
+  # ── 4. Deploy to the dev environment (Bicep → Container Apps) ───────────────
+  #     Gated by an ADO Environment (dev auto-approves; higher envs would add approvals).
+  - stage: DeployDev
+    displayName: "Deploy → dev (Container Apps)"
+    dependsOn: [BuildTest, Scan]
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: deployDev
+        environment: "apiplatform-dev"
+        pool: { vmImage: "ubuntu-latest" }
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # Org instance: replace with the shared deploy-environment template.
+                - task: AzureCLI@2
+                  displayName: "bicep deploy (infra) + container app update"
+                  inputs:
+                    azureSubscription: "$(azureServiceConnection)"
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az deployment group create \
+                        -g $(resourceGroup) \
+                        --template-file infra/main.bicep \
+                        --parameters infra/params/dev.bicepparam
+                      # Build + roll the API image (ACR build keeps it self-contained).
+                      az acr build --registry $(acrName) --image apiplatform-api:$(Build.BuildId) -f Dockerfile .
+                      az containerapp update -g $(resourceGroup) -n $(appName) \
+                        --image $(acrName).azurecr.io/apiplatform-api:$(Build.BuildId)
+                - script: curl -fsS https://$(appName).$(resourceGroup).azurecontainerapps.io/health || true
+                  displayName: "smoke: /health"

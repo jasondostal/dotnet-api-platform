@@ -1,0 +1,49 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>ApiPlatform</RootNamespace>
+
+    <!-- Deterministic, reproducible builds + restore lock files (platform reference posture) -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(TF_BUILD)' == 'true'">true</ContinuousIntegrationBuild>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- Shared package metadata for the packable projects -->
+    <Authors>Jason Dostal</Authors>
+    <Company>ApiPlatform</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <VersionPrefix>0.1.0</VersionPrefix>
+  </PropertyGroup>
+
+  <!-- Canonical contracts are surfaced globally so domain code (endpoints, ACL,
+       connectors) references the models without per-file usings. Excludes Contracts itself
+       and the Aspire AppHost (whose project references are orchestration resources, not
+       compile references, so the Contracts namespace isn't available there). -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'ApiPlatform.Contracts' AND '$(MSBuildProjectName)' != 'ApiPlatform.AppHost' AND '$(MSBuildProjectName)' != 'ApiPlatform.Analyzers'">
+    <Using Include="ApiPlatform.Contracts" />
+  </ItemGroup>
+
+  <!-- Compile-time governance: every src project runs the platform analyzers (APL0001/APL0002).
+       The analyzer is consumed as an analyzer (not a runtime reference); the rule severities
+       are set in .editorconfig. The analyzer project doesn't reference itself. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'ApiPlatform.Analyzers'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)ApiPlatform.Analyzers\ApiPlatform.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!-- Banned-API guardrail: raw data-access primitives (HttpClient, SqlConnection, DbContext)
+       are forbidden everywhere EXCEPT the Integration (ACL) layer, so the only path to member
+       data is the governed connector seam. Severity is set to error in .editorconfig (RS0030). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'ApiPlatform.Integration' AND '$(MSBuildProjectName)' != 'ApiPlatform.Analyzers'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+</Project>

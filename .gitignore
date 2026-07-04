@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+*.user
+dist/
+
+# generated code (regenerated from OpenAPI; never committed)
+src/Api/Generated/
+
+# node tooling
+node_modules/
+
+# static portal build output
+docs/portal/
+
+# PRIVATE — internal strategy / real vendor mapping. Never publish.
+NOTES.private.md
+*.private.md
+*.private.txt
+
+# local params that may carry secrets / subscription specifics
+infra/params/*.local.bicepparam
+*.env
+.env
+
+# os
+.DS_Store
